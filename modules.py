@@ -1,3 +1,4 @@
+import os
 import math
 import torch
 import torch.nn as nn
@@ -38,28 +39,6 @@ class TimeEmbedding(nn.Module):
         return emb
 
 
-def timestep_embedding(timesteps, dim, max_period=10000):
-    """
-    Create sinusoidal timestep embeddings.
-
-    :param timesteps: a 1-D Tensor of N indices, one per batch element.
-                      These may be fractional.
-    :param dim: the dimension of the output.
-    :param max_period: controls the minimum frequency of the embeddings.
-    :return: an [N x dim] Tensor of positional embeddings.
-    """
-    half = dim // 2
-    freqs = torch.exp(-math.log(max_period) *
-                      torch.arange(start=0, end=half, dtype=torch.float32) /
-                      half).to(device=timesteps.device)
-    args = timesteps[:, None].float() * freqs[None]
-    embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
-    if dim % 2:
-        embedding = torch.cat(
-            [embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
-    return embedding
-
-
 class DownSample(nn.Module):
     def __init__(self, in_ch):
         super().__init__()
@@ -87,39 +66,6 @@ class UpSample(nn.Module):
 
     def forward(self, x, temb=None, aemb=None):
         _, _, H, W = x.shape
-        x = F.interpolate(
-            x, scale_factor=float(2.0), mode='nearest')
-        x = self.main(x)
-        return x
-
-
-class LatentDownSample(nn.Module):
-    def __init__(self, in_ch):
-        super().__init__()
-        self.main = nn.Conv1d(in_ch, in_ch, 3, stride=2, padding=1)
-        self.initialize()
-
-    def initialize(self):
-        init.xavier_uniform_(self.main.weight)
-        init.zeros_(self.main.bias)
-
-    def forward(self, x, temb=None, aemb=None):
-        x = self.main(x)
-        return x
-
-
-class LatentUpSample(nn.Module):
-    def __init__(self, in_ch):
-        super().__init__()
-        self.main = nn.Conv1d(in_ch, in_ch, 3, stride=1, padding=1)
-        self.initialize()
-
-    def initialize(self):
-        init.xavier_uniform_(self.main.weight)
-        init.zeros_(self.main.bias)
-
-    def forward(self, x, temb=None, aemb=None):
-        _, _, L = x.shape
         x = F.interpolate(
             x, scale_factor=float(2.0), mode='nearest')
         x = self.main(x)
@@ -204,7 +150,7 @@ class CrossAttnBlock(nn.Module):
 
 
 class ResBlock(nn.Module):
-    def __init__(self, in_ch, out_ch, tdim, dropout, attn=False):
+    def __init__(self, in_ch, out_ch, tdim, dropout, attn=False, crossattn : Union[bool, nn.Module] =False):
         super().__init__()
         self.temb_proj = nn.Sequential(
             nn.SiLU(),
@@ -236,6 +182,8 @@ class ResBlock(nn.Module):
             self.attn = AttnBlock(out_ch)
         else:
             self.attn = nn.Identity()
+        self.use_crossattn = bool(crossattn)
+        self.crossattn  = CrossAttnBlock(out_ch)
         self.initialize()
 
     def initialize(self):
@@ -243,6 +191,7 @@ class ResBlock(nn.Module):
             if isinstance(module, (nn.Conv2d, nn.Linear)):
                 init.xavier_uniform_(module.weight)
                 init.zeros_(module.bias)
+        init.xavier_uniform_(self.block2[-1].weight, gain=1e-5)
 
     def forward(self, x, temb):
         h = self.block1(x)
@@ -254,6 +203,60 @@ class ResBlock(nn.Module):
         h = self.block3(h)
         h = h + self.shortcut(x)
         h = self.attn(h)
+
+        if self.use_crossattn:
+            h = self.crossattn(h, a)
+
+        return h
+
+
+class SimpleResBlock(nn.Module):
+    def __init__(self, in_ch, out_ch, tdim, dropout, attn=False, crossattn : Union[bool, nn.Module] =False):
+        super().__init__()
+        self.temb_proj = nn.Sequential(
+            nn.SiLU(),
+            nn.Linear(tdim, out_ch),
+        )
+        self.block1 = nn.Sequential(
+            nn.GroupNorm(32, in_ch),
+            nn.SiLU(),
+            nn.Conv2d(in_ch, out_ch, 3, stride=1, padding=1),
+        )
+        self.block2 = nn.Sequential(
+            nn.GroupNorm(32, out_ch),
+            nn.SiLU(),
+            nn.Dropout(dropout),
+            nn.Conv2d(out_ch, out_ch, 3, stride=1, padding=1),
+        )
+        if in_ch != out_ch:
+            self.shortcut = nn.Conv2d(in_ch, out_ch, 1, stride=1, padding=0)
+        else:
+            self.shortcut = nn.Identity()
+        self.use_attn = attn
+        if self.use_attn:
+            self.attn = AttnBlock(out_ch)
+        else:
+            self.attn = nn.Identity()
+        self.use_crossattn = bool(crossattn)
+        self.crossattn  = CrossAttnBlock(out_ch)
+        self.initialize()
+
+    def initialize(self):
+        for module in self.modules():
+            if isinstance(module, (nn.Conv2d, nn.Linear)):
+                init.xavier_uniform_(module.weight)
+                init.zeros_(module.bias)
+        init.xavier_uniform_(self.block2[-1].weight, gain=1e-5)
+
+    def forward(self, x, temb):
+        h = self.block1(x)
+        h += self.temb_proj(temb)[:, :, None, None]
+        h = self.block2(h)
+        h = h + self.shortcut(x)
+        h = self.attn(h)
+
+        if self.use_crossattn:
+            h = self.crossattn(h, a)
 
         return h
 
@@ -286,7 +289,12 @@ class AuxResBlock(nn.Module):
             nn.Dropout(dropout),
             nn.Conv2d(out_ch, out_ch, 3, stride=1, padding=1),
         )
-
+        self.block4 = nn.Sequential(
+            nn.GroupNorm(32, out_ch),
+            nn.SiLU(),
+            nn.Dropout(dropout),
+            nn.Conv2d(out_ch, out_ch, 3, stride=1, padding=1),
+        )
         if in_ch != out_ch:
             self.shortcut = nn.Conv2d(in_ch, out_ch, 1, stride=1, padding=0)
         else:
@@ -297,7 +305,7 @@ class AuxResBlock(nn.Module):
         else:
             self.attn = nn.Identity()
         self.use_crossattn = bool(crossattn)
-        self.crossattn = CrossAttnBlock(out_ch)
+        self.crossattn  = CrossAttnBlock(out_ch)
         self.initialize()
 
     def initialize(self):
@@ -305,25 +313,27 @@ class AuxResBlock(nn.Module):
             if isinstance(module, (nn.Conv2d, nn.Linear)):
                 init.xavier_uniform_(module.weight)
                 init.zeros_(module.bias)
+        init.xavier_uniform_(self.block2[-1].weight, gain=1e-5)
 
     def forward(self, x, temb, aemb=None):
         h = self.block1(x)
-
         temb_out = self.temb_proj(temb)[:, :, None, None]
         out_norm, out_rest = self.block2[0], self.block2[1:]
         scale, shift = torch.chunk(temb_out, 2, dim=1)
         h = out_norm(h) * (1 + scale) + shift
+        h = out_rest(h)
         aemb_out = self.aemb_proj(aemb)[:, :, None, None]
         scale, shift = torch.chunk(aemb_out, 2, dim=1)
-        h = h * (1 + scale) + shift
+        out_norm, out_rest = self.block3[0], self.block3[1:]
+        h = out_norm(h) * (1 + scale) + shift
         h = out_rest(h)
-        h = self.block3(h)
+        h = self.block4(h)
 
-        h += self.shortcut(x)
+        h = h + self.shortcut(x)
         h = self.attn(h)
 
         if self.use_crossattn:
-            h = self.crossattn(h, aemb)
+            h = self.crossattn(h, a)
 
         return h
 
@@ -357,10 +367,18 @@ class ResBlock_encoder(nn.Module):
             if isinstance(module, (nn.Conv2d, nn.Linear)):
                 init.xavier_uniform_(module.weight)
                 init.zeros_(module.bias)
+        init.xavier_uniform_(self.block2[-1].weight, gain=1e-5)
 
     def forward(self, x):
         h = self.block1(x)
         h = self.block2(h)
-        h += self.shortcut(x)
+        h = h + self.shortcut(x)
         h = self.attn(h)
         return h
+
+#TimeEmbedding = torch.jit.script(TimeEmbedding)
+#DownSample = torch.jit.script(DownSample)
+#UpSample = torch.jit.script(UpSample)
+#AttnBlock = torch.jit.script(AttnBlock)
+#CrossAttnBlock = torch.jit.script(CrossAttnBlock)
+#ResBlock = torch.jit.script(ResBlock)

@@ -1,0 +1,11 @@
+name: infomax-diffusion
+channels:
+  - defaults
+dependencies:
+  - torchvision
+  - pytorch-cuda=11.7
+  - pytorch
+  - einops
+  - datasets
+  - matplotlib
+  - pyyaml

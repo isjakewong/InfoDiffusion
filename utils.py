@@ -1,43 +1,10 @@
+import os
 import random
-import math
+
 import numpy as np
 import torch
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.nn import functional as F
-from torch.utils.data import Dataset
-from sklearn.datasets import make_swiss_roll
-
-
-def gaussian_mixture(batch_size, n_dim=2, n_labels=10,
-                     x_var=0.5, y_var=0.1, label_indices=None):
-    if n_dim % 2 != 0:
-        raise Exception("n_dim must be a multiple of 2.")
-
-    def sample(x, y, label, n_labels):
-        shift = 1.4
-        if label >= n_labels:
-            label = np.random.randint(0, n_labels)
-        r = 2.0 * np.pi / float(n_labels) * float(label)
-        new_x = x * math.cos(r) - y * math.sin(r)
-        new_y = x * math.sin(r) + y * math.cos(r)
-        new_x += shift * math.cos(r)
-        new_y += shift * math.sin(r)
-        return np.array([new_x, new_y]).reshape((2,))
-
-    x = np.random.normal(0, x_var, (batch_size, n_dim // 2))
-    y = np.random.normal(0, y_var, (batch_size, n_dim // 2))
-    z = np.empty((batch_size, n_dim), dtype=np.float32)
-    for batch in range(batch_size):
-        for zi in range(n_dim // 2):
-            if label_indices is not None:
-                z[batch, zi*2:zi*2+2] = sample(x[batch, zi], y[batch, zi], label_indices[batch], n_labels)
-            else:
-                z[batch, zi*2:zi*2+2] = sample(x[batch, zi], y[batch, zi], np.random.randint(0, n_labels), n_labels)
-
-    return z
-
-def swiss_roll(batch_size, noise=0.5):
-    return make_swiss_roll(n_samples=batch_size, noise=noise)[0][:, [0, 2]] / 5.
 
 def cos(a, b):
     a = a.view(-1)
@@ -54,20 +21,15 @@ def generate_exp_string(args) -> str:
             root += f'_{args.C_max}C'
     if args.mmd_weight != 0:
         root += f'_{args.mmd_weight}mmd'
-    if args.prior != 'regular':
-        root += f'_{args.prior}'
-    if args.is_bottleneck:
-        root += '_bottleneck'
     return root
 
 
-def seed_everything(r_seed):
-    print("Set seed: ", r_seed)
-    random.seed(r_seed)
-    np.random.seed(r_seed)
-    torch.manual_seed(r_seed)
-    torch.cuda.manual_seed(r_seed)
-    torch.cuda.manual_seed_all(r_seed)
+def seed_everything():
+    random.seed(10)
+    np.random.seed(10)
+    torch.manual_seed(10)
+    torch.cuda.manual_seed(10)
+    torch.cuda.manual_seed_all(10)
     torch.backends.cudnn.deterministic = True
 
 
@@ -101,13 +63,13 @@ class AverageMeter(object):
         self.avg = 0
         self.sum = 0
         self.count = 0
-
+    
     def update(self, val, n=1):
         self.val = val
         self.sum += val * n
         self. count += n
         self.avg = self.sum / self.count
-
+    
     def __str__(self):
         fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
         return fmtstr.format(**self.__dict__)
@@ -121,7 +83,8 @@ class ProgressMeter(object):
 
     def display(self, batch):
         entries = [self.prefix + self.batch_fmtstr.format(batch)]
-        entries += [str(meter) for meter in self.meters]  
+        entries += [str(meter) for meter in self.meters]
+        
         print('\r' + '\t'.join(entries), end='')
 
     def _get_batch_fmtstr(self, num_batches):
@@ -159,14 +122,9 @@ class GradualWarmupScheduler(_LRScheduler):
         else:
             return super(GradualWarmupScheduler, self).step(epoch)
 
-
-class LatentDataset(Dataset):
-    def __init__(self, data_path):
-        data = np.load(data_path)
-        self.x = torch.from_numpy(data['all_a']).float()
-
-    def __getitem__(self, index):
-        return self.x[index]
-
-    def __len__(self):
-        return len(self.x)
+def BCE_loss(input, target, attr_loss_weight):
+    attr_loss_weight = torch.tensor(attr_loss_weight).to(device)
+    loss = F.binary_cross_entropy(input.to(device),  
+                                target.type(torch.FloatTensor).to(device), 
+                                weight=attr_loss_weight.type(torch.FloatTensor).to(device))
+    return loss
