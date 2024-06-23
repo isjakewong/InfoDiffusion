@@ -5,7 +5,7 @@ By [Yingheng Wang](https://isjakewong.github.io/), [Yair Schiff](https://yair-sc
 [![deploy](https://img.shields.io/badge/Blog%20%20-8A2BE2)]()
 [![arXiv](https://img.shields.io/badge/arXiv-2406.07524-red.svg)](https://arxiv.org/abs/2306.08757)
 
-![graphical_abstract_updated_2](https://github.com/s-sahoo/mdlm/assets/16799748/b0cab23a-d966-45fa-a3ad-be972b23a98a)
+<div align=center><img src="figs/graphicalabstract.drawio_v2.pdf" width="95%"></div>
 
 We introduce *MDLM*, a **M**asked discrete **D**iffusion **L**anguage **M**odel that features
 a novel (SUBS)titution based
