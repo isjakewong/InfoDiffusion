@@ -8,10 +8,10 @@ By [Yingheng Wang](https://isjakewong.github.io/), [Yair Schiff](https://yair-sc
 <table>
   <tr>
     <td align="center">
-      <img src="flowchart.drawio-1.png" width="75%">
+      <img src="flowchart.drawio-1.png" width="95%">
     </td>
     <td align="center">
-      <img src="graphicalabstract.drawio_v2-1.png" width="75%">
+      <img src="graphicalabstract.drawio_v2-1.png" width="95%">
     </td>
   </tr>
 </table>
