@@ -34,8 +34,8 @@ In this repo, we release:
 * **Samplers**:
   1. [DDPM](https://proceedings.neurips.cc/paper/2020/hash/4c5bcfec8584af0d967f1ab10179ca4b-Abstract.html) sampling and [DDIM](https://arxiv.org/abs/2010.02502) sampling.
   2. Two phase sampling where these two phases samples from regular diffusion models and VADM consecutivley.
-  3. Latent sampling that has an auxiliary latent diffusion model used to sample $\bm{z}_t$ along with $\bm{x}_t$.
-  4. Reverse DDIM sampling to visualize the latent $\bm{x}_T$ from $\bm{x}_0$.
+  3. Latent sampling that has an auxiliary latent diffusion model used to sample $\mathbf{z}_t$ along with $\mathbf{x}_t$.
+  4. Reverse DDIM sampling to visualize the latent $\mathbf{x}_T$ from $\mathbf{x}_0$.
 
 <a name="code-organization"></a>
 ## Code Organization
@@ -118,7 +118,7 @@ We also provide the commands in the above steps:
 
 ## Latent classification
 To run latent classification, we need to conduct the following steps:
-1. ```latent_quality.sh```: save the auxiliary variables $\bm{z}$ and latent variables $\bm{x_T}$ used to train the classifier.
+1. ```latent_quality.sh```: save the auxiliary variables $\mathbf{z}$ and latent variables $\mathbf{x_T}$ used to train the classifier.
 2. ```train_classifier.sh```: train the classifier and compute the classification accuracy.
 
 ### Save the latents
@@ -128,7 +128,7 @@ To run latent classification, we need to conduct the following steps:
 
 ### Disentanglement evluation 
 To evaluate latent disentanglement, we need to conduct the following steps:
-1. ```latent_quality.sh```: save the auxiliary variables $\bm{z}$ and latent variables $\bm{x_T}$.
+1. ```latent_quality.sh```: save the auxiliary variables $\mathbf{z}$ and latent variables $\mathbf{x_T}$.
 2. ```eval_disentangle.sh```: evaluate the latent disentanglement by computing DCI and TAD scores.
 
 ### Save the latents
