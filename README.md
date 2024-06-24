@@ -20,30 +20,32 @@ We introduce *InfoDiffusion*, a principled probabilistic extension of diffusion 
 
 
 In this repo, we release:
-* **The MDLM framework.**
-  1. SUBStitution based parameterization
-  2. Simplified loss calculation for masked diffusion processes
+* **The Auxiliary-Variable Diffusion Models (AVDM)**:
+  1. Diffusion decoder conditioned on auxiliary variable using AdaNorm
+  2. Simplified loss calucation for auxiliary latent variables with semantic prior
 * **Baseline implementations** [[Examples]](#baselines):
-  1. Autoregressive model that matches the SOTA AR performance on LM1B.
-  2. Score Entropy Based Discrete Diffusion [SEDD](https://arxiv.org/abs/2310.16834).
-  3. An efficient implementation of the absorbing state [D3PM](https://arxiv.org/abs/2107.03006) that beats the previous state of the art diffuision model SEDD on LM1B.
-* **Samplers**
-  1. Ancestral sampling as proposed in D3PM.
-  2. Analytic sampler as proposed in SEDD.
-  3. Our proposed efficient sampler that
-     - makes MDLM **~3-4x** faster than the existing diffusion models. [[Example]](#sample-gen)
-     - supports semi-autoregressive (SAR) generation.  [[Example]](#semi-ar-gen)
+  1. A set of model variants from the VAE family (VAE, \beta-VAE, InfoVAE) with different priors (Gaussian, Mixture of Gaussians, spiral).
+  2. A simplified version of Diffusion Autoencoder [DiffAE](https://arxiv.org/abs/2111.15640) within our AVDM framework.
+  3. A minimal and efficient implementation of vanilla diffusion models.
+* **Evaluation metrics**:
+  1. Generation quality: Fréchet inception distance (FID).
+  2. Latent quality: latent space interpolation, latent variables for classification.
+  3. Disentanglement: [DCI](https://openreview.net/forum?id=By-7dz-AZ) score, [TAD](https://link.springer.com/chapter/10.1007/978-3-031-19812-0_3) score.
+* **Samplers**:
+  1. [DDPM](https://proceedings.neurips.cc/paper/2020/hash/4c5bcfec8584af0d967f1ab10179ca4b-Abstract.html) sampling and [DDIM](https://arxiv.org/abs/2010.02502) sampling.
+  2. Two phase sampling where these two phases samples from regular diffusion models and VADM consecutivley.
+  3. Latent sampling that has an auxiliary latent diffusion model used to sample $\bm{z}_t$ along with $\bm{x}_t$.
+  4. Reverse DDIM sampling to visualize the latent $\bm{x}_T$ from $\bm{x}_0$.
 
 <a name="code-organization"></a>
 ## Code Organization
-1. ```main.py```: Routines for training and evaluation
-2. ```noise_schedule.py```: Noise schedules
-3. ```diffusion.py```: Forward/reverse diffusion
-4. ```dataloader.py```: Dataloaders
-5. ```utils.py```: LR scheduler, logging, `fsspec` handling
-6. ```models/```: Denoising network architectures. Supports [DiT](https://arxiv.org/abs/2212.09748), AR transformer, and [Mamba](https://arxiv.org/abs/2312.00752)
-7. ```configs/```: Config files for datasets/denoising networks/noise schedules/LR schedules
-8. ```scripts/```: Shell scripts for training/evaluation
+1. ```run.py```: Routines for training and evaluation
+2. ```models.py```: Diffusion models (InfoDiffusion, DiffAE, regular diffusion), VAEs (InfoVAE, \beta-VAE, VAE)
+3. ```modules.py```: Neural network blocks
+4. ```sampling.py```: DDPM/DDIM sampler, Reverse DDIM sampler, Two-phase sampler, Latent sampler
+5. ```utils.py```: LR scheduler, logging, utils to calculate priors
+7. ```gen_fid_stats.py```: Generate stats used for FID calculation
+8. ```calc_fid.py```: Calculation FID scores
 
 
 <a name="getting_started"></a>
@@ -53,169 +55,99 @@ In this repo, we release:
 To get started, create a conda environment containing the required dependencies.
 
 ```bash
-conda env create -f requirements.yaml
-conda activate mdlm
+  conda create -n infodiffusion
+  conda activate infodiffusion
+  pip install -r requirements.txt
 ```
 
-Create the following directories to store saved models and slurm logs:
+Run the training using the bash script:
 ```bash
-mkdir outputs
-mkdir watch_folder
+  bash run.sh
 ```
-and run the training as a batch job:
+or
 ```bash
-sbatch scripts/train_owt_mdlm.sh
+  python run.py --model diff --mode train --mmd_weight 0.1 --a_dim 32 --epochs 50 --dataset celeba --batch_size 32 --save_epochs 5 --deterministic --prior regular --r_seed 64 
 ```
-
-### Checkpoints
-
-We have uploaded MDLM model trained on OpenWebText for 1M training steps to the Huggingface hub 🤗:
-[kuleshov-group/mdlm-owt](https://huggingface.co/kuleshov-group/mdlm-owt)
-Furthermore, we have released the checkpoints for the AR and SEDD baselines trained on OpenWebText in this [Google Drive folder](https://drive.google.com/drive/folders/16LuuptK7Xfk-vzhQYZBZ0SA-B-BFluau?usp=sharing).
-
-## Reproducing Experiments
-
-Below, we describe the steps required for reproducing the experiments in the paper.
-Throughout, the main entry point for running experiments is the [`main.py`](./main.py) script.
-We also provide sample `slurm` scripts for launching pre-training and downstream fine-tuning experiments in the [`scrips/`](./scripts) directory.
+the arguments in this script are given to train a diffusion model `--model diff` using Maximum Mean Discrepancy (MMD) `--mmd_weight 0.1` with a regular Gaussian prior `--prior regular` on CelebA `--dataset celeba`.
 
 
-### Generate Samples
-<a name="sample-gen"></a>
-The argument to `sampling.predictor` specifies the sampler which takes one of the following values:
-* `ddpm_cache`: our proposed sampler that's **~3-4x** faster than the samplers propsed in D3PM and SEDD.
-* `ddpm`: Ancestral sampling proposed in D3PM.
-* `analytic`: Analytic sampler proposed in SEDD.
+## Evaluation
 
-In the following table we report wall clock time to generate 64 samples on a single A5000 GPU with `batch_size=1`. $T$ denotes the time discretization of the reverse process.
-|                         | $T=5k (\downarrow)$ | $T=10k (\downarrow)$ |
-|-------------------------|---------------------|----------------------|
-| **SEDD**                | 127.1               | 229.3                |
-| **MDLM** + `ddpm`       | 113.8               | 206.6                |
-| **MDLM** +`ddpm_cache`  | **40.1**            | **60.4**             |
+Below, we describe the steps required for evaluation the trained diffusion models.
+Throughout, the main entry point for running experiments is the [`run.py`](./run.py) script.
+We also provide sample `bash` scripts for launching these evaluation runs.
+In general, different evaluation runs can be switched using `--mode`, which takes one of the following values:
+* `eval`: sampling images from the trained diffusion model.
+* `eval_fid`: sampling images for FID score calculation.
+* `save_latent`: save the auxiliary variables.
+* `disentangle`: run evaluation on auxiliary variable disentanglement.
+* `interpolate`: run interpolation between two given input images.
+* `latent_quality`: save the auxiliary variables and latent variables for classification.
+* `train_latent_ddim`: train the latent diffusion models used in latent sampler.
+* `plot_latent`: plot the latent space.
+However, the FID score calculation, the latent classification, and the quantitative disentanglement evaluation need multiple steps.
 
+### FID calculation
+<a name="FID-calc"></a>
+To calculate the FID scores, we need to conduct the following steps:
+1. ```eval_fid.sh```: train diffusion models and latent diffusion models and generate samples from them.
+2. ```gen_fid.sh```: generate FID stats given the dataset name and the folder storing the preprocessed images from this dataset.
+3. ```calc_fid.sh```: calculate FID scores given the dataset name and the folder storing the generated samples.
 
-To generate samples from a pre-trained model use one of the following commands:
-#### Huggingface model
+We also provide the commands in the above steps:
+### Train and sample:
 ```bash
-python main.py \
-  mode=sample_eval \
-  eval.checkpoint_path=kuleshov-group/mdlm-owt \
-  data=openwebtext-split  \
-  model.length=1024  \
-  sampling.predictor=ddpm_cache  \
-  sampling.steps=1000 \
-  loader.eval_batch_size=1 \
-  sampling.num_sample_batches=10 \
-  backbone=hf_dit
+  python run.py --model diff --mode train --mmd_weight 0.1 --a_dim 256 --epochs 50 --dataset celeba --batch_size 32 --save_epochs 5 --deterministic --prior regular --r_seed 64 
+
+  python run.py --model diff --mode save_latent --disent_metric tad --mmd_weight 0.1 --a_dim 256 --epochs 50 --dataset celeba --deterministic --prior regular --r_seed 64
+
+  python run.py --model diff --mode train_latent_ddim --a_dim 256 --epochs 50 --mmd_weight 0.1 --dataset celeba --deterministic --save_epoch 10 --prior regular --r_seed 64
+
+  python run.py --model diff --mode eval_fid --split_step 500 --a_dim 256 --batch_size 256 --mmd_weight 0.1 --sampling_number 10000 --epochs 50 --dataset celeba --is_latent --prior regular --r_seed 64
 ```
-#### Local checkpoint
+
+### Generate FID stats:
 ```bash
-python main.py \
-  mode=sample_eval \
-  eval.checkpoint_path=/path/to/checkpoint/mdlm.ckpt \
-  data=openwebtext-split  \
-  model.length=1024  \
-  sampling.predictor=ddpm_cache  \
-  sampling.steps=10000 \
-  loader.eval_batch_size=1 \
-  sampling.num_sample_batches=1 \
-  backbone=dit
+  python gen_fid_stats.py celeba ./celeba_imgs
 ```
 
-### Semi-AR sample generation
-<a name="semi-ar-gen"></a>
-MDLM can also generate samples of arbitrary length in a semi-autoregressive (SAR) manner.
-We generate 200 sequences of length 2048 tokens on a single `3090` GPU and evaluate generative perplexity under a pre-trained GPT-2 model. In the below table we find that in addition to achieving better generative perplexity, MDLM enables **25-30x** faster SAR decoding relative to [SSD-LM](https://arxiv.org/abs/2210.17432).
-
-|                     | Gen. PPL ($\downarrow$) | Sec/Seq ($\downarrow$) |
-|---------------------|-------------------------|------------------------|
-| **SSD-LM**          | 35.43                   | 2473.9                 |
-| **MDLM** +`ddpm_cache`  | **27.18**               | **89.3**               |
-
-*Gen. PPL: Generation Perplexity, Sec/Seq: Seconds per Sequence*
-
+### Calculate FID scores:
 ```bash
-python main.py \
-  mode=sample_eval \
-  eval.checkpoint_path=kuleshov-group/mdlm-owt \
-  data=openwebtext-split \
-  parameterization=subs \
-  model.length=1024  \
-  sampling.predictor=ddpm_cache  \
-  sampling.steps=1000 \
-  loader.eval_batch_size=1 \
-  sampling.num_sample_batches=2 \
-  sampling.semi_ar=True \
-  sampling.stride_length=512 \
-  sampling.num_strides=2 \
-  backbone=hf_dit
+  python calc_fid.py celeba ./imgs/celeba_32d_0.1mmd/eval-fid-latent
 ```
 
-### Train
-To train MDLM from scratch on OpenWebText use the following command:
-```
-python main.py \
-  model=small \
-  data=openwebtext-split \
-  wandb.name=mdlm-owt \
-  parameterization=subs \
-  model.length=1024 \
-  eval.compute_generative_perplexity=True \
-  sampling.steps=1000
-```
-The arguments `loader.batch_size` and `loader.eval_batch_size` allow you to control the global batch size and the batch size per GPU. If `loader.batch_size * num_gpus` is less than the global batch size, PyTorch Lightning will resort to gradient accumulation. You can also launch a training job on Slurm using the command: `sbatch scripts/train_owt_mdlm.sh`. The slurm scripts to train the Auto-regressive and SEDD baselines are as follows respectively: [`scripts/train_lm1b_ar.sh`](scripts/train_lm1b_ar.sh), [`scripts/train_owt_sedd.sh`](scripts/train_owt_sedd.sh).
+## Latent classification
+To run latent classification, we need to conduct the following steps:
+1. ```latent_quality.sh```: save the auxiliary variables $\bm{z}$ and latent variables $\bm{x_T}$ used to train the classifier.
+2. ```train_classifier.sh```: train the classifier and compute the classification accuracy.
 
-### Eval 
-To compute test perplexity, use `mode=ppl_eval`. Example scripts provided in `scripts/`. An example command for perplexity evaluation on OpenWebText is:
-```
-python main.py \
-  mode=ppl_eval \
-  loader.batch_size=16 \
-  loader.eval_batch_size=16 \
-  data=openwebtext-split \
-  model=small \
-  parameterization=subs \
-  backbone=dit \
-  model.length=1024 \
-  eval.checkpoint_path=/path/to/checkpoint/mdlm.ckpt \
-  +wandb.offline=true
+### Save the latents
+```bash
+  python run.py --model diff --mode latent_quality --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
 ```
 
-### Baseline evaluation
+### Disentanglement evluation 
+To evaluate latent disentanglement, we need to conduct the following steps:
+1. ```latent_quality.sh```: save the auxiliary variables $\bm{z}$ and latent variables $\bm{x_T}$.
+2. ```eval_disentangle.sh```: evaluate the latent disentanglement by computing DCI and TAD scores.
+
+### Save the latents
+```bash
+  python run.py --model diff --mode latent_quality --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
+```
+
+
+## Baselines
 <a name="baselines"></a>
-We release the checkpoints for the baselines: SEDD and AR trained on OpenWebText in this [Google Drive folder](https://drive.google.com/drive/folders/16LuuptK7Xfk-vzhQYZBZ0SA-B-BFluau?usp=sharing). Download the checkpoints: `ar.ckpt`, `sedd.ckpt` and use the following commands to compute test perplexity:
-#### AR
+
+The baselines can be easily switched by using the argument `--model`, which takes in one of the following values `['diff', 'vae', 'vanilla']` where `'diff'` is for AVDM, `'vae'` is for the VAE model family, and `'vanilla'` is for the regular diffusion models. Below is an example to train InfoVAE:
 ```bash
-python main.py \
-  mode=ppl_eval \
-  loader.batch_size=16 \
-  loader.eval_batch_size=16 \
-  data=openwebtext-split \
-  model=small-ar \
-  parameterization=ar \
-  backbone=ar \
-  model.length=1024 \
-  eval.checkpoint_path=/path/to/checkpoint/ar.ckpt \
-  +wandb.offline=true
-```
-#### SEDD
-```bash
-python main.py \
-  mode=ppl_eval \
-  loader.batch_size=16 \
-  loader.eval_batch_size=16 \
-  data=openwebtext-split \
-  model=small \
-  parameterization=sedd \
-  backbone=dit \
-  model.length=1024 \
-  eval.checkpoint_path=/path/to/checkpoint/sedd.ckpt \
-  time_conditioning=True \
-  +wandb.offline=true
+  python run.py --model vae --mode train --mmd_weight 0.1 --a_dim 32 --epochs 50 --dataset celeba --batch_size 32 --save_epochs 5 --prior regular --r_seed 64 
 ```
 
-### Disclaimer
+## Notes and disclaimer
+The ```main``` branch provides codes and implementations optimized for representation learning tasks and ```InfoDiffusion-dev``` provides codes closer to the version for reproducing the results reported in the paper.
+
 This research code is provided as-is, without any support or guarantee of quality. However, if you identify any issues or areas for improvement, please feel free to raise an issue or submit a pull request. We will do our best to address them.
 
 ## Citation
