@@ -16,12 +16,7 @@ By [Yingheng Wang](https://isjakewong.github.io/), [Yair Schiff](https://yair-sc
   </tr>
 </table>
 
-We introduce *MDLM*, a **M**asked discrete **D**iffusion **L**anguage **M**odel that features
-a novel (SUBS)titution based
-parameterization which simplifies the absorbing state diffusion
-loss to a mixture of
-classical masked language modeling losses. In doing so, we achieve
-SOTA perplexity numbers on LM1B and OpenWebText among diffusion models while achiving competitive zero-shot perplexity with SOTA AR models on numerous datasets. We provide a demo in this [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/18nC6q7dWq154fI1BXPLwmtnS7Zvbrv6p?usp=sharing/) notebook.
+We introduce *InfoDiffusion*, a principled probabilistic extension of diffusion models that supports low-dimensional latents with associated variational learning objectives that are regularized with a mutual information term. We show that these algorithms simultaneously yield high-quality samples and latent representations, achieving competitive performance with state-of-the-art methods on both fronts.
 
 
 In this repo, we release:
