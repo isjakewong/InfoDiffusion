@@ -40,7 +40,7 @@ In this repo, we release:
 <a name="code-organization"></a>
 ## Code Organization
 1. ```run.py```: Routines for training and evaluation
-2. ```models.py```: Diffusion models (InfoDiffusion, DiffAE, regular diffusion), VAEs (InfoVAE, \beta-VAE, VAE)
+2. ```models.py```: Diffusion models (InfoDiffusion, DiffAE, regular diffusion), VAEs (InfoVAE, $\beta$-VAE, VAE)
 3. ```modules.py```: Neural network blocks
 4. ```sampling.py```: DDPM/DDIM sampler, Reverse DDIM sampler, Two-phase sampler, Latent sampler
 5. ```utils.py```: LR scheduler, logging, utils to calculate priors
