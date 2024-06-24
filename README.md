@@ -24,7 +24,7 @@ In this repo, we release:
   1. Diffusion decoder conditioned on auxiliary variable using AdaNorm
   2. Simplified loss calucation for auxiliary latent variables with semantic prior
 * **Baseline implementations** [[Examples]](#baselines):
-  1. A set of model variants from the VAE family (VAE, \beta-VAE, InfoVAE) with different priors (Gaussian, Mixture of Gaussians, spiral).
+  1. A set of model variants from the VAE family (VAE, $\beta$-VAE, InfoVAE) with different priors (Gaussian, Mixture of Gaussians, spiral).
   2. A simplified version of Diffusion Autoencoder [DiffAE](https://arxiv.org/abs/2111.15640) within our AVDM framework.
   3. A minimal and efficient implementation of vanilla diffusion models.
 * **Evaluation metrics**:
