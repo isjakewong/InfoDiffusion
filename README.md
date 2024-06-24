@@ -95,7 +95,7 @@ To calculate the FID scores, we need to conduct the following steps:
 3. ```calc_fid.sh```: calculate FID scores given the dataset name and the folder storing the generated samples.
 
 We also provide the commands in the above steps:
-### Train and sample:
+#### Train and sample:
 ```bash
   python run.py --model diff --mode train --mmd_weight 0.1 --a_dim 256 --epochs 50 --dataset celeba --batch_size 32 --save_epochs 5 --deterministic --prior regular --r_seed 64 
 
@@ -106,22 +106,22 @@ We also provide the commands in the above steps:
   python run.py --model diff --mode eval_fid --split_step 500 --a_dim 256 --batch_size 256 --mmd_weight 0.1 --sampling_number 10000 --epochs 50 --dataset celeba --is_latent --prior regular --r_seed 64
 ```
 
-### Generate FID stats:
+#### Generate FID stats:
 ```bash
   python gen_fid_stats.py celeba ./celeba_imgs
 ```
 
-### Calculate FID scores:
+#### Calculate FID scores:
 ```bash
   python calc_fid.py celeba ./imgs/celeba_32d_0.1mmd/eval-fid-latent
 ```
 
-## Latent classification
+### Latent classification
 To run latent classification, we need to conduct the following steps:
 1. ```latent_quality.sh```: save the auxiliary variables $\mathbf{z}$ and latent variables $\mathbf{x_T}$ used to train the classifier.
 2. ```train_classifier.sh```: train the classifier and compute the classification accuracy.
 
-### Save the latents
+#### Save the latents
 ```bash
   python run.py --model diff --mode latent_quality --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
 ```
@@ -131,7 +131,7 @@ To evaluate latent disentanglement, we need to conduct the following steps:
 1. ```latent_quality.sh```: save the auxiliary variables $\mathbf{z}$ and latent variables $\mathbf{x_T}$.
 2. ```eval_disentangle.sh```: evaluate the latent disentanglement by computing DCI and TAD scores.
 
-### Save the latents
+#### Save the latents
 ```bash
   python run.py --model diff --mode latent_quality --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
 ```
