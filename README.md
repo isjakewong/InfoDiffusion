@@ -118,7 +118,7 @@ We also provide the commands in the above steps:
 
 ### Latent classification
 To run latent classification, we need to conduct the following steps:
-1. ```latent_quality.sh```: save the auxiliary variables $\mathbf{z}$ and latent variables $\mathbf{x_T}$ used to train the classifier.
+1. ```save_latent.sh```: save the auxiliary variables $\mathbf{z}$ and latent variables $\mathbf{x_T}$ used to train the classifier.
 2. ```train_classifier.sh```: train the classifier and compute the classification accuracy.
 
 #### Save the latents
@@ -128,7 +128,7 @@ To run latent classification, we need to conduct the following steps:
 
 ### Disentanglement evluation 
 To evaluate latent disentanglement, we need to conduct the following steps:
-1. ```latent_quality.sh```: save the auxiliary variables $\mathbf{z}$ and latent variables $\mathbf{x_T}$.
+1. ```save_latent.sh```: save the auxiliary variables $\mathbf{z}$ and latent variables $\mathbf{x_T}$.
 2. ```eval_disentangle.sh```: evaluate the latent disentanglement by computing DCI and TAD scores.
 
 #### Save the latents
