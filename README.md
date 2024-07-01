@@ -85,7 +85,37 @@ In general, different evaluation runs can be switched using `--mode`, which take
 * `latent_quality`: save the auxiliary variables and latent variables for classification.
 * `train_latent_ddim`: train the latent diffusion models used in latent sampler.
 * `plot_latent`: plot the latent space.
-However, the FID score calculation, the latent classification, and the quantitative disentanglement evaluation need multiple steps.
+However, the quantitative disentanglement evaluation, the latent classification, and the FID score calculation need multiple steps.
+
+### Disentanglement evluation 
+To evaluate latent disentanglement, we need to conduct the following steps:
+1. ```save_latent.sh```: save the auxiliary variables $\mathbf{z}$ and latent variables $\mathbf{x_T}$.
+2. ```eval_disentangle.sh```: evaluate the latent disentanglement by computing DCI and TAD scores.
+
+#### Save the latents
+```bash
+  python run.py --model diff --mode save_latent --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
+```
+
+#### Eval the disentanglement metrics on latents
+```bash
+python eval_disentanglement.py --model diff --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
+```
+
+### Latent classification
+To run latent classification, we need to conduct the following steps:
+1. ```save_latent.sh```: save the auxiliary variables $\mathbf{z}$ and latent variables $\mathbf{x_T}$ used to train the classifier.
+2. ```eval_disentangle.sh```: use the same evaluation script for disentanglement to train the classifier and obtain the classification accuracy.
+
+#### Save the latents
+```bash
+  python run.py --model diff --mode save_latent --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
+```
+
+#### Train latent classifier and evaluate
+```bash
+python eval_disentanglement.py --model diff --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
+```
 
 ### FID calculation
 <a name="FID-calc"></a>
@@ -114,26 +144,6 @@ We also provide the commands in the above steps:
 #### Calculate FID scores:
 ```bash
   python calc_fid.py celeba ./imgs/celeba_32d_0.1mmd/eval-fid-latent
-```
-
-### Latent classification
-To run latent classification, we need to conduct the following steps:
-1. ```save_latent.sh```: save the auxiliary variables $\mathbf{z}$ and latent variables $\mathbf{x_T}$ used to train the classifier.
-2. ```train_classifier.sh```: train the classifier and compute the classification accuracy.
-
-#### Save the latents
-```bash
-  python run.py --model diff --mode save_latent --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
-```
-
-### Disentanglement evluation 
-To evaluate latent disentanglement, we need to conduct the following steps:
-1. ```save_latent.sh```: save the auxiliary variables $\mathbf{z}$ and latent variables $\mathbf{x_T}$.
-2. ```eval_disentangle.sh```: evaluate the latent disentanglement by computing DCI and TAD scores.
-
-#### Save the latents
-```bash
-  python run.py --model diff --mode save_latent --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
 ```
 
 
