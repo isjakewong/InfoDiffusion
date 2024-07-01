@@ -123,7 +123,7 @@ To run latent classification, we need to conduct the following steps:
 
 #### Save the latents
 ```bash
-  python run.py --model diff --mode latent_quality --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
+  python run.py --model diff --mode save_latent --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
 ```
 
 ### Disentanglement evluation 
@@ -133,7 +133,7 @@ To evaluate latent disentanglement, we need to conduct the following steps:
 
 #### Save the latents
 ```bash
-  python run.py --model diff --mode latent_quality --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
+  python run.py --model diff --mode save_latent --a_dim 256 --mmd_weight 0.1 --epochs 50 --dataset celeba --sampling_number 16 --deterministic --prior regular --r_seed 64
 ```
 
 
