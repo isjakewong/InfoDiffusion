@@ -146,6 +146,7 @@ We also provide the commands in the above steps:
   python calc_fid.py celeba ./imgs/celeba_32d_0.1mmd/eval-fid-latent
 ```
 
+Note: please refer to [clean-fid](https://github.com/GaParmar/clean-fid) for more options to calculate FID.
 
 ## Baselines
 <a name="baselines"></a>
